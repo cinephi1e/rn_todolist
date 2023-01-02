@@ -5,6 +5,20 @@ import { v4 as uuid } from "uuid";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Categories from "./components/Categories";
 import Todolist from "./components/Todolist";
+import { dbService } from "./firebase";
+import {
+  onSnapshot,
+  query,
+  collection,
+  doc,
+  orderBy,
+  addDoc,
+  getDoc,
+  getDocs,
+  updateDoc,
+  deleteDoc,
+} from "firebase/firestore";
+import { async } from "@firebase/util";
 
 export default function App() {
   const [todos, setTodos] = useState([]); // 투두리스트
@@ -14,27 +28,28 @@ export default function App() {
 
   // 추가
   const newTodo = {
-    id: uuid(),
+    // id: uuid(),
     title,
     category,
     isDone: false,
     isEdit: false,
+    createAt: Date.now(),
   };
-  const addTodo = () => {
+  const addTodo = async () => {
     if (title) {
       setTitle("");
-      setTodos([...todos, newTodo]);
+      await addDoc(collection(dbService, "todos"), newTodo);
     } else {
       alert("내용을 입력해주세요.");
     }
   };
 
   // 완료/취소
-  const setDone = (id) => {
-    const newTodos = [...todos];
+  const setDone = async (id) => {
     const i = todos.findIndex((todo) => todo.id === id);
-    newTodos[i].isDone = !newTodos[i].isDone;
-    setTodos(newTodos);
+    await updateDoc(doc(dbService, "todos", id), {
+      isDone: !todos[i].isDone,
+    });
   };
 
   // 삭제
@@ -47,61 +62,61 @@ export default function App() {
       {
         text: "삭제",
         style: "destructive",
-        onPress: () => {
-          const newTodos = todos.filter((todo) => todo.id !== id);
-          setTodos(newTodos);
+        onPress: async () => {
+          await deleteDoc(doc(dbService, "todos", id));
         },
       },
     ]);
   };
 
   //  수정
-  // 1. useState로 edit 상태 관리
-  // 2. id를 매개변수로 활용
-  // 3. 투두리스트 중 id와 일치하는 아이템을 수정
-  // 4. setState로 수정값 반환
-  const setEditing = (id, title) => {
+  const setEditing = async (id, title) => {
     setEdit(title);
-    const newTodos = [...todos];
     const i = todos.findIndex((todo) => todo.id === id);
-    newTodos[i].isEdit = !newTodos[i].isEdit;
-    setTodos(newTodos);
+    await updateDoc(doc(dbService, "todos", id), {
+      isEdit: !todos[i].isEdit,
+    });
   };
-  const editTodo = (id) => {
-    const newTodos = [...todos];
-    const i = todos.findIndex((todo) => todo.id === id);
-    newTodos[i].title = edit;
-    newTodos[i].isEdit = false;
-    setTodos(newTodos);
+  const editTodo = async (id) => {
+    await updateDoc(doc(dbService, "todos", id), {
+      title: edit,
+      isEdit: false,
+    });
   };
 
   // 카테고리 설정
-  // 1. useState로 category 상태 관리
-  // 2. 카테고리마다 조건문으로 카테고리와 일치하는 투두리스트만 반환
-  // 3. 클릭한 카테고리 색상 변경
   const setCate = async (cate) => {
     setCategory(cate);
-    await AsyncStorage.setItem("category", cate);
+    // await AsyncStorage.setItem("category", cate);
+    await updateDoc(doc(dbService, "category", "currentCategory"), {
+      category: cate,
+    });
   };
 
-  // async storage
-  // 투두리스트의 현재 상태를 AsyncStorage에 저장
+  // 최초 마운팅시 firestore에 저장했던 데이터 불러오기
   useEffect(() => {
-    const saveTodos = async () => {
-      await AsyncStorage.setItem("todos", JSON.stringify(todos));
-    };
-    if (todos.length > 0) saveTodos();
-  }, [todos]);
+    const q = query(
+      collection(dbService, "todos"),
+      orderBy("createAt", "desc")
+    );
+    onSnapshot(q, (snapshot) => {
+      const newTodos = snapshot.docs.map((doc) => {
+        const newTodo = {
+          id: doc.id,
+          ...doc.data(),
+        };
+        return newTodo;
+      });
+      setTodos(newTodos);
+    });
 
-  // 최초 마운팅시 AsyncStorage에 저장했던 데이터 불러오기
-  useEffect(() => {
-    const getData = async () => {
-      const resTodos = await AsyncStorage.getItem("todos");
-      const resCate = await AsyncStorage.getItem("category");
-      setTodos(JSON.parse(resTodos) ?? []);
-      setCategory(resCate ?? "Study");
+    const getCategory = async () => {
+      const snapshot = await getDoc(
+        doc(dbService, "category", "currentCategory")
+      );
+      setCategory(snapshot.data().category);
     };
-    getData();
+    getCategory();
   }, []);
 
   return (

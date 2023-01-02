@@ -31,7 +31,7 @@ const Todolist = ({
                   ) : (
                     <Ionicons
                       name="md-square-outline"
-                      size={17}
+                      size={17.5}
                       color="black"
                     />
                   )}
