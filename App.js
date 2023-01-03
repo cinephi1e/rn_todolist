@@ -1,8 +1,6 @@
 import { StatusBar } from "expo-status-bar";
 import { StyleSheet, Text, SafeAreaView, TextInput, Alert } from "react-native";
 import { useEffect, useState } from "react";
-import { v4 as uuid } from "uuid";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import Categories from "./components/Categories";
 import Todolist from "./components/Todolist";
 import { dbService } from "./firebase";
@@ -14,11 +12,9 @@ import {
   orderBy,
   addDoc,
   getDoc,
-  getDocs,
   updateDoc,
   deleteDoc,
 } from "firebase/firestore";
-import { async } from "@firebase/util";
 
 export default function App() {
   const [todos, setTodos] = useState([]); // 투두리스트
@@ -28,7 +24,6 @@ export default function App() {
 
   // 추가
   const newTodo = {
-    // id: uuid(),
     title,
     category,
     isDone: false,
